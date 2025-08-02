@@ -152,8 +152,61 @@ app.post('/create', async (req, res) => {
   }
 });
 
-// [Keep all other endpoints the same as in your original code]
-// ... (include all your other endpoints exactly as they were)
+app.use((req, res, next) => {
+  console.log(`Incoming request: ${req.method} ${req.path}`);
+  next();
+});
+
+// API Endpoints
+// Health Check
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK',
+    message: 'API is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Create Endpoint
+app.post('/api/create', async (req, res) => {
+  // ... (your existing create endpoint code)
+});
+
+// Get Endpoint
+app.get('/api/:slug', async (req, res) => {
+  // ... (your existing get endpoint code)
+});
+
+// Update Endpoint
+app.put('/api/:slug', async (req, res) => {
+  // ... (your existing update endpoint code)
+});
+
+// Delete Endpoint
+app.delete('/api/:slug', async (req, res) => {
+  // ... (your existing delete endpoint code)
+});
+
+// List All Endpoints
+app.get('/api', async (req, res) => {
+  // ... (your existing list endpoints code)
+});
+
+// Catch-all for undefined routes
+app.all('*', (req, res) => {
+  console.error(`Route not found: ${req.method} ${req.path}`);
+  res.status(404).json({ 
+    error: 'Endpoint not found',
+    availableEndpoints: [
+      'GET /api/health',
+      'POST /api/create',
+      'GET /api/:slug',
+      'PUT /api/:slug',
+      'DELETE /api/:slug',
+      'GET /api'
+    ]
+  });
+});
 
 // Enhanced Health Check
 app.get('/health', async (req, res) => {
