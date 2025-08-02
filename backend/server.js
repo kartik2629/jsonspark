@@ -6,31 +6,70 @@ const admin = require('firebase-admin');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const { v4: uuidv4 } = require('uuid');
 
-// Initialize Firebase Admin
-try {
-  admin.initializeApp({
-    credential: admin.credential.cert({
+// Enhanced Firebase Initialization
+const initializeFirebase = () => {
+  try {
+    // Verify required environment variables
+    if (!process.env.FIREBASE_PROJECT_ID || 
+        !process.env.FIREBASE_CLIENT_EMAIL || 
+        !process.env.FIREBASE_PRIVATE_KEY || 
+        !process.env.FIREBASE_DATABASE_URL) {
+      throw new Error('Missing required Firebase environment variables');
+    }
+
+    // Process private key with proper formatting
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY
+      .replace(/\\n/g, '\n')  // Convert escaped newlines to actual newlines
+      .replace(/"/g, '')      // Remove any quotes
+      .trim();                // Remove whitespace
+
+    console.log('Initializing Firebase with:', {
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
-    }),
-    databaseURL: process.env.FIREBASE_DATABASE_URL
-  });
-  console.log('Firebase Admin initialized successfully');
-} catch (error) {
-  console.error('Firebase initialization error:', error);
-  process.exit(1);
-}
+      privateKeyPresent: !!privateKey,
+      databaseURL: process.env.FIREBASE_DATABASE_URL
+    });
 
+    // Initialize with unique app name to prevent conflicts
+    const app = admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: privateKey
+      }),
+      databaseURL: process.env.FIREBASE_DATABASE_URL
+    }, uuidv4());
+
+    console.log('Firebase Admin initialized successfully');
+    return app;
+  } catch (error) {
+    console.error('Firebase initialization error:', error);
+    // Don't log private key in production
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Private key value:', process.env.FIREBASE_PRIVATE_KEY);
+    }
+    process.exit(1);
+  }
+};
+
+const firebaseApp = initializeFirebase();
 const db = admin.firestore();
+
+// Configure Firestore settings
+db.settings({ 
+  ignoreUndefinedProperties: true,
+  timestampsInSnapshots: true
+});
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Security Middleware
 app.use(helmet());
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173','https://jsonspark.vercel.app'],
+  origin: ['http://localhost:3000', 'http://localhost:5173', 'https://jsonspark.vercel.app'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -83,10 +122,9 @@ app.post('/create', async (req, res) => {
       return res.status(409).json({ error: 'Slug already exists' });
     }
 
-    // Create the response structure you want
     const responseData = {
       result: "SUCCESS",
-      data: parsedJson, // Wrap the data in an array as per your example
+      data: parsedJson,
       message: "Success"
     };
 
@@ -105,108 +143,38 @@ app.post('/create', async (req, res) => {
     });
   } catch (error) {
     console.error('Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.get('/:slug', async (req, res) => {
-  try {
-    const docRef = db.collection('api').doc(req.params.slug);
-    const doc = await docRef.get();
-    
-    if (!doc.exists) {
-      return res.status(404).json({ error: 'Endpoint not found' });
-    }
-
-    const data = doc.data();
-    res.json(data.jsonData); // Return the exact structure you want
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.put('/:slug', async (req, res) => {
-  const { jsonData } = req.body;
-
-  if (!jsonData) {
-    return res.status(400).json({ error: 'JSON data is required' });
-  }
-
-  const parsedJson = validateJSON(jsonData);
-  if (!parsedJson) {
-    return res.status(400).json({ error: 'Invalid JSON data' });
-  }
-
-  try {
-    const docRef = db.collection('api').doc(req.params.slug);
-    const doc = await docRef.get();
-    
-    if (!doc.exists) {
-      return res.status(404).json({ error: 'Endpoint not found' });
-    }
-
-    // Update with the same response structure
-    const responseData = {
-      result: "SUCCESS",
-      data: [parsedJson],
-      message: "Success"
-    };
-
-    await docRef.update({
-      jsonData: responseData,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
-
-    res.json({ success: true, message: 'API Updated' });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-app.delete('/:slug', async (req, res) => {
+// [Keep all other endpoints the same as in your original code]
+// ... (include all your other endpoints exactly as they were)
+
+// Enhanced Health Check
+app.get('/health', async (req, res) => {
   try {
-    const docRef = db.collection('api').doc(req.params.slug);
-    const doc = await docRef.get();
+    // Test Firestore connection
+    const testRef = db.collection('healthcheck').doc('test');
+    await testRef.set({ timestamp: new Date().toISOString() });
+    const doc = await testRef.get();
     
-    if (!doc.exists) {
-      return res.status(404).json({ error: 'Endpoint not found' });
-    }
-
-    await docRef.delete();
-    res.json({ success: true, message: 'API Deleted' });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.get('/', async (req, res) => {
-  try {
-    const snapshot = await db.collection('api')
-      .orderBy('createdAt', 'desc')
-      .get();
-
-    const endpoints = [];
-    snapshot.forEach(doc => {
-      endpoints.push({
-        slug: doc.data().slug,
-        name: doc.data().name,
-        createdAt: doc.data().createdAt?.toDate()
-      });
+    res.json({
+      status: 'OK',
+      firebase: !!admin.apps.length,
+      database: doc.exists,
+      timestamp: new Date().toISOString()
     });
-
-    res.json({ endpoints });
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Health check failed:', error);
+    res.status(500).json({
+      status: 'ERROR',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
   }
-});
-
-// Health Check
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
 // Error Handling
@@ -216,12 +184,15 @@ app.use((req, res) => {
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ error: 'Internal server error' });
+  res.status(500).json({ 
+    error: 'Internal server error',
+    details: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
 });
 
 // Start Server
 const server = app.listen(PORT, () => {
-  console.log(`Server Running AT -  ${PORT}`);
+  console.log(`Server Running AT - ${PORT}`);
 });
 
 // Graceful Shutdown
