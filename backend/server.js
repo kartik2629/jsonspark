@@ -99,8 +99,25 @@ const validateSlug = (slug) => {
   return /^[a-z0-9-]+$/.test(slug);
 };
 
+// Request Logging Middleware
+app.use((req, res, next) => {
+  console.log(`Incoming request: ${req.method} ${req.path}`);
+  next();
+});
+
 // API Endpoints
-app.post('/create', async (req, res) => {
+
+// Health Check
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK',
+    message: 'API is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Create Endpoint
+app.post('/api/create', async (req, res) => {
   const { name, jsonData, slug } = req.body;
 
   if (!name || !jsonData || !slug) {
@@ -108,7 +125,7 @@ app.post('/create', async (req, res) => {
   }
 
   if (!validateSlug(slug)) {
-    return res.status(400).json({ error: 'Invalid slug format' });
+    return res.status(400).json({ error: 'Invalid slug format. Only lowercase letters, numbers, and hyphens are allowed.' });
   }
 
   const parsedJson = validateJSON(jsonData);
@@ -124,15 +141,9 @@ app.post('/create', async (req, res) => {
       return res.status(409).json({ error: 'Slug already exists' });
     }
 
-    const responseData = {
-      result: "SUCCESS",
-      data: parsedJson,
-      message: "Success"
-    };
-
     await docRef.set({
       name,
-      jsonData: responseData,
+      jsonData: parsedJson,
       slug,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
@@ -140,8 +151,8 @@ app.post('/create', async (req, res) => {
 
     res.status(201).json({ 
       success: true,
-      endpoint: `/${slug}`,
-      message: 'API Created'
+      endpoint: `/api/${slug}`,
+      message: 'API endpoint created successfully'
     });
   } catch (error) {
     console.error('Error:', error);
@@ -152,60 +163,129 @@ app.post('/create', async (req, res) => {
   }
 });
 
-app.use((req, res, next) => {
-  console.log(`Incoming request: ${req.method} ${req.path}`);
-  next();
-});
-
-// API Endpoints
-// Health Check
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK',
-    message: 'API is running',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Create Endpoint
-app.post('/api/create', async (req, res) => {
-  // ... (your existing create endpoint code)
-});
-
 // Get Endpoint
 app.get('/api/:slug', async (req, res) => {
-  // ... (your existing get endpoint code)
+  const { slug } = req.params;
+
+  if (!validateSlug(slug)) {
+    return res.status(400).json({ error: 'Invalid slug format' });
+  }
+
+  try {
+    const docRef = db.collection('api').doc(slug);
+    const doc = await docRef.get();
+    
+    if (!doc.exists) {
+      return res.status(404).json({ error: 'Endpoint not found' });
+    }
+
+    res.json(doc.data().jsonData);
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 });
 
 // Update Endpoint
 app.put('/api/:slug', async (req, res) => {
-  // ... (your existing update endpoint code)
+  const { slug } = req.params;
+  const { jsonData } = req.body;
+
+  if (!validateSlug(slug)) {
+    return res.status(400).json({ error: 'Invalid slug format' });
+  }
+
+  const parsedJson = validateJSON(jsonData);
+  if (!parsedJson) {
+    return res.status(400).json({ error: 'Invalid JSON data' });
+  }
+
+  try {
+    const docRef = db.collection('api').doc(slug);
+    const doc = await docRef.get();
+    
+    if (!doc.exists) {
+      return res.status(404).json({ error: 'Endpoint not found' });
+    }
+
+    await docRef.update({
+      jsonData: parsedJson,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    res.json({ 
+      success: true,
+      message: 'Endpoint updated successfully'
+    });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 });
 
 // Delete Endpoint
 app.delete('/api/:slug', async (req, res) => {
-  // ... (your existing delete endpoint code)
+  const { slug } = req.params;
+
+  if (!validateSlug(slug)) {
+    return res.status(400).json({ error: 'Invalid slug format' });
+  }
+
+  try {
+    const docRef = db.collection('api').doc(slug);
+    const doc = await docRef.get();
+    
+    if (!doc.exists) {
+      return res.status(404).json({ error: 'Endpoint not found' });
+    }
+
+    await docRef.delete();
+
+    res.json({ 
+      success: true,
+      message: 'Endpoint deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 });
 
 // List All Endpoints
 app.get('/api', async (req, res) => {
-  // ... (your existing list endpoints code)
-});
+  try {
+    const snapshot = await db.collection('api').get();
+    const endpoints = [];
+    
+    snapshot.forEach(doc => {
+      endpoints.push({
+        slug: doc.id,
+        name: doc.data().name,
+        createdAt: doc.data().createdAt?.toDate()?.toISOString(),
+        endpoint: `/api/${doc.id}`
+      });
+    });
 
-// Catch-all for undefined routes
-app.all('*', (req, res) => {
-  console.error(`Route not found: ${req.method} ${req.path}`);
-  res.status(404).json({ 
-    error: 'Endpoint not found',
-    availableEndpoints: [
-      'GET /api/health',
-      'POST /api/create',
-      'GET /api/:slug',
-      'PUT /api/:slug',
-      'DELETE /api/:slug',
-      'GET /api'
-    ]
-  });
+    res.json({
+      count: endpoints.length,
+      endpoints
+    });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 });
 
 // Enhanced Health Check
@@ -232,11 +312,45 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// Error Handling
-app.use((req, res) => {
-  res.status(404).json({ error: 'Endpoint not found' });
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    message: 'JSONSpark API Service',
+    version: '1.0.0',
+    endpoints: {
+      healthCheck: '/health',
+      apiDocumentation: 'Coming soon',
+      availableEndpoints: [
+        'GET /api/health',
+        'POST /api/create',
+        'GET /api/:slug',
+        'PUT /api/:slug',
+        'DELETE /api/:slug',
+        'GET /api'
+      ]
+    }
+  });
 });
 
+// Catch-all for undefined routes
+app.all('*', (req, res) => {
+  console.error(`Route not found: ${req.method} ${req.path}`);
+  res.status(404).json({ 
+    error: 'Endpoint not found',
+    availableEndpoints: [
+      'GET /',
+      'GET /health',
+      'GET /api/health',
+      'POST /api/create',
+      'GET /api/:slug',
+      'PUT /api/:slug',
+      'DELETE /api/:slug',
+      'GET /api'
+    ]
+  });
+});
+
+// Error Handling Middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ 
@@ -247,7 +361,7 @@ app.use((err, req, res, next) => {
 
 // Start Server
 const server = app.listen(PORT, () => {
-  console.log(`Server Running AT - ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
 
 // Graceful Shutdown
