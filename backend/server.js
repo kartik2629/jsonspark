@@ -33,7 +33,7 @@ const initializeFirebase = () => {
     });
 
     // Initialize with unique app name to prevent conflicts
-    const app = admin.initializeApp({
+    const firebaseApp = admin.initializeApp({
       credential: admin.credential.cert({
         projectId: process.env.FIREBASE_PROJECT_ID,
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
@@ -43,10 +43,9 @@ const initializeFirebase = () => {
     }, uuidv4());
 
     console.log('Firebase Admin initialized successfully');
-    return app;
+    return firebaseApp;
   } catch (error) {
     console.error('Firebase initialization error:', error);
-    // Don't log private key in production
     if (process.env.NODE_ENV !== 'production') {
       console.error('Private key value:', process.env.FIREBASE_PRIVATE_KEY);
     }
@@ -54,8 +53,11 @@ const initializeFirebase = () => {
   }
 };
 
+// Initialize Firebase and get the app instance
 const firebaseApp = initializeFirebase();
-const db = admin.firestore();
+
+// Get Firestore instance from the initialized app
+const db = firebaseApp.firestore();
 
 // Configure Firestore settings
 db.settings({ 
