@@ -1,0 +1,170 @@
+/* Color Variables */
+:root {
+  /* Light Theme */
+  --color-primary: #34a0a4;
+  --color-secondary: #168aad;
+  --color-accent: #1a759f;
+  --color-light: #f8f9fa;
+  --color-dark: #212529;
+  --color-success: #52b69a;
+  --color-warning: #b5e48c;
+  --color-danger: #d9ed92;
+  --color-info: #76c893;
+  --color-text: #212529;
+  --color-bg: #f8f9fa;
+  --color-card: #ffffff;
+  --color-border: #dee2e6;
+}
+
+[data-theme="dark"] {
+  --color-primary: #52b69a;
+  --color-secondary: #34a0a4;
+  --color-accent: #168aad;
+  --color-light: #495057;
+  --color-dark: #f8f9fa;
+  --color-success: #76c893;
+  --color-warning: #99d98c;
+  --color-danger: #b5e48c;
+  --color-info: #1a759f;
+  --color-text: #f8f9fa;
+  --color-bg: #212529;
+  --color-card: #2b3035;
+  --color-border: #495057;
+}
+
+/* Base Styles */
+.app-container {
+  min-height: 100vh;
+  padding: 2rem 0;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  transition: all 0.3s ease;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--color-primary);
+}
+
+/* Card Styles */
+.card {
+  background-color: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-0.25rem);
+  box-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.15);
+}
+
+/* Form Elements */
+.form-control {
+  background-color: var(--color-card);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.form-control:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 0.25rem rgba(52, 160, 164, 0.25);
+}
+
+.form-label {
+  color: var(--color-text);
+}
+
+.text-muted {
+  color: var(--color-secondary) !important;
+}
+
+/* Buttons */
+.btn-primary {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.btn-primary:hover {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.btn-outline-primary {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.btn-outline-primary:hover {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.btn-outline-secondary {
+  color: var(--color-secondary);
+  border-color: var(--color-secondary);
+}
+
+.btn-outline-secondary:hover {
+  background-color: var(--color-secondary);
+  border-color: var(--color-secondary);
+  color: white;
+}
+
+/* Alerts */
+.alert-success {
+  background-color: rgba(82, 182, 154, 0.2);
+  border-color: var(--color-success);
+  color: var(--color-text);
+}
+
+.alert-danger {
+  background-color: rgba(217, 237, 146, 0.2);
+  border-color: var(--color-danger);
+  color: var(--color-text);
+}
+
+/* List Group */
+.list-group-item {
+  background-color: var(--color-card);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.list-group-item:hover {
+  background-color: var(--color-light);
+}
+
+/* Editor Container */
+.editor-container {
+  border-radius: 0.5rem;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+
+/* Theme Toggle */
+.theme-toggle {
+  transition: all 0.3s ease;
+}
+
+.theme-toggle:hover {
+  transform: scale(1.05);
+}
+
+/* Spinner */
+.spinner-border {
+  color: var(--color-primary);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .d-flex.flex-wrap {
+    gap: 0.5rem;
+  }
+  
+  .btn {
+    padding: 0.5rem;
+    font-size: 0.9rem;
+  }
+}
